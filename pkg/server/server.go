@@ -6,6 +6,7 @@ import (
 	"github.com/gorilla/websocket"
 	"net"
 	"net/http"
+	"strings"
 	"sync"
 	"tesg/pkg/utils"
 	"time"
@@ -19,11 +20,8 @@ type WebSocketConn struct {
 }
 
 func (conn *WebSocketConn) ReadMessage() {
-	//创建一个读取消息的通道
 	in := make(chan []byte)
-	//创建一个通道关闭使用
 	stop := make(chan struct{})
-	//实例化一个Ping对象
 	pingTicker := time.NewTicker(pingPeriod)
 
 	c := conn.socket
@@ -53,18 +51,18 @@ func (conn *WebSocketConn) ReadMessage() {
 	for {
 		select {
 		case _ = <-pingTicker.C:
-			utils.InfoF("发送心跳包...")
-			heartPackage := map[string]interface{}{
-				"type": "heartPackage",
-				"data": " ",
-			}
-			str := utils.MapToJson(heartPackage)
-			err := conn.Send(str)
-			if err != nil {
-				utils.ErrorF("发送心跳包时遇到错误")
-				pingTicker.Stop()
-				return
-			}
+			//utils.InfoF("发送心跳包...")
+			//heartPackage := map[string]interface{}{
+			//	"type": "heartPackage",
+			//	"data": " ",
+			//}
+			//str := utils.MapToJson(heartPackage)
+			//err := conn.Send(str)
+			//if err != nil {
+			//	utils.ErrorF("发送心跳包时遇到错误")
+			//	pingTicker.Stop()
+			//	return
+			//}
 		case message := <-in:
 			{
 				utils.InfoF("接收到数据：%s", message)
@@ -77,7 +75,9 @@ func (conn *WebSocketConn) ReadMessage() {
 }
 
 func (conn *WebSocketConn) Send(message string) error {
-	utils.InfoF("发送数据: %s", message)
+	if !strings.HasSuffix(message, "heartPackage\"}") {
+		utils.InfoF("发送数据: %s", message)
+	}
 	//连接加锁
 	conn.mutex.Lock()
 	//延迟执行连接解锁

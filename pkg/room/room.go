@@ -14,6 +14,7 @@ const (
 	Candidate      = "candidate"      // Cadidate消息
 	HangUp         = "hangUp"         // 挂断
 	LeaveRoom      = "leaveRoom"      // 离开房间
+	IsFull         = "isFull"         // 离开房间
 	UpdateUserList = "updateUserList" // 更新房间用户列表
 )
 
@@ -56,7 +57,7 @@ func (rm *RoomMananger) deleteRoom(id string) {
 }
 
 func (rm *RoomMananger) InterHandleWebSocket(conn *server.WebSocketConn, request *http.Request) {
-	utils.InfoF("On open &v", request)
+	utils.InfoF("有新用户链接成功")
 	conn.On("message", func(message []byte) {
 		jsonValue, err := utils.JsonStrToStruct(string(message))
 		if err != nil {
@@ -70,15 +71,34 @@ func (rm *RoomMananger) InterHandleWebSocket(conn *server.WebSocketConn, request
 			return
 		}
 		data = temp.(map[string]interface{})
-		roomId := data["roomId"].(string)
-		utils.InfoF("房间Id：%v", roomId)
 
+		var roomId string
+		if val, ok := data["roomId"]; ok {
+			if roomId, ok = val.(string); !ok {
+				utils.ErrorF("房间Id类型错误：%v", val)
+				return
+			}
+		}
 		// 根据房间id查找房间
 		room := rm.GetRoom(roomId)
 		if room == nil {
 			room = rm.createRoom(roomId)
+			rm.rooms[roomId] = room
+			utils.WarnF("房间[%v]不存在，已创建房间", roomId)
+		} else {
+			//if len(room.users) >= 2 {
+			//	utils.WarnF("房间[%v]已满人", roomId)
+			//	data := map[string]interface{}{
+			//		"type": IsFull,
+			//		"data": map[string]interface{}{},
+			//	}
+			//	conn.Send(utils.MapToJson(data))
+			//	return
+			//} else {
+			utils.InfoF("房间[%v]已存在，可供加入", roomId)
+			//}
 		}
-
+		utils.InfoF("房间列表[%v]", rm.rooms)
 		switch jsonValue["type"] {
 		case JoinRoom:
 			onJoinRoom(conn, data, room, rm)
@@ -135,6 +155,7 @@ func onHangUP(conn *server.WebSocketConn, data map[string]interface{}, room *Roo
 
 // offer answer candidate公用一个，目的只有转发，基本上不做数据处理
 func onCandidate(conn *server.WebSocketConn, data map[string]interface{}, room *Room, value map[string]interface{}) {
+	utils.InfoF("接收到的内容：%v", data)
 	to := data["to"].(string)
 	user, ok := room.users[to]
 	if !ok {
@@ -144,10 +165,8 @@ func onCandidate(conn *server.WebSocketConn, data map[string]interface{}, room *
 	user.conn.Send(utils.MapToJson(data))
 }
 
-// 房间用户更新事件
 func (rm *RoomMananger) notifyUsersUpdate(conn *server.WebSocketConn, users map[string]User) {
 	var userInfos []UserInfo
-	// 拿出当前房间的所有用户
 	for _, clientUser := range users {
 		userInfos = append(userInfos, clientUser.info)
 	}
@@ -155,7 +174,7 @@ func (rm *RoomMananger) notifyUsersUpdate(conn *server.WebSocketConn, users map[
 	sendData["type"] = UpdateUserList
 	sendData["data"] = userInfos
 	for _, user := range users {
-		// 同志当前房间的所有用户，房间人数发生了变化
+		// 通知当前房间的所有用户，人数发生变化
 		user.conn.Send(utils.MapToJson(sendData))
 	}
 }
@@ -169,6 +188,8 @@ func onJoinRoom(conn *server.WebSocketConn, data map[string]interface{}, room *R
 		},
 	}
 	room.users[user.info.ID] = user
+	utils.InfoF("📢【%v】", room.users)
+	utils.InfoF("📢通知：用户【%v】将加入房间【%v】", user.info.Name, room.Id)
 	rm.notifyUsersUpdate(conn, room.users)
 }
 
