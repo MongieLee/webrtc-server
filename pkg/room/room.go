@@ -194,5 +194,29 @@ func onJoinRoom(conn *server.WebSocketConn, data map[string]interface{}, room *R
 }
 
 func onClose(conn *server.WebSocketConn, rm *RoomMananger) {
+	utils.InfoF("链接关闭 %v", conn)
 
+	var userId, roomId = "", ""
+	for _, room := range rm.rooms {
+		for _, user := range room.users {
+			if user.conn == conn {
+				userId = user.info.ID
+				roomId = room.Id
+			}
+		}
+	}
+	if userId == "" {
+		utils.WarnF("没有找到退出房间的用户和房间")
+		return
+	}
+	for _, user := range rm.GetRoom(roomId).users {
+		if user.conn != conn {
+
+		}
+	}
+	delete(rm.GetRoom(roomId).users, userId)
+	//if len(rm.GetRoom(roomId).users) <= 1 {
+	//	delete(rm.rooms, roomId)
+	//}
+	rm.notifyUsersUpdate(conn, rm.GetRoom(roomId).users)
 }

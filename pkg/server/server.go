@@ -6,6 +6,7 @@ import (
 	"github.com/gorilla/websocket"
 	"net"
 	"net/http"
+	"strconv"
 	"strings"
 	"sync"
 	"tesg/pkg/utils"
@@ -152,6 +153,7 @@ func NewP2PServer(wsHandler func(ws *WebSocketConn, request *http.Request)) *P2P
 }
 
 func (server *P2PServer) handlerWebSocketRequest(writer http.ResponseWriter, request *http.Request) {
+	utils.InfoF("in ws")
 	conn, err := server.upgrader.Upgrade(writer, request, http.Header{
 		"connect": []string{"test"},
 	})
@@ -171,9 +173,9 @@ func (server *P2PServer) Bind(config P2PServerConfig) {
 		w.Write([]byte("test peer 2 peer server"))
 	})
 	utils.InfoF("P2P server listening on :%s:%d", config.Host, config.Port)
-	e := http.ListenAndServe(":8080", nil)
-	if e != nil {
-		return
-	}
-	//panic(http.ListenAndServeTLS(":"+strconv.Itoa(config.Port), config.CertFile, config.KeyFile, nil))
+	//e := http.ListenAndServe(":8080", nil)
+	//if e != nil {
+	//	return
+	//}
+	panic(http.ListenAndServeTLS(":"+strconv.Itoa(config.Port), config.CertFile, config.KeyFile, nil))
 }
